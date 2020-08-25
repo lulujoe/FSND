@@ -8,9 +8,7 @@ import dateutil.parser
 import babel
 from sqlalchemy import func
 from flask import Flask, render_template, request, Response, flash, redirect, url_for
-from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
 import logging
 from logging import Formatter, FileHandler
 from flask_wtf import Form
@@ -23,7 +21,6 @@ from models import db_setup, Venue, Show, Artist
 #----------------------------------------------------------------------------#
 
 app = Flask(__name__)
-moment = Moment(app)
 db = db_setup(app)
 
 # TODO: connect to a local postgresql database
@@ -100,25 +97,25 @@ def search_venues():
     # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
     # seach for Hop should return "The Musical Hop".
     # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
-    search_target = request.form.get('search_term', '')
-    search_result = db.session.query(Venue).filter(
-        Venue.name.ilike(f'%{search_target}%')).all()
+    search_words = request.form.get('search_term', '')
+    query = db.session.query(Venue).filter(
+        Venue.name.ilike(f'%{search_words}%')).all()
     res = []
 
-    for result in search_result:
+    for content in query:
         res.append({
             "id":
-            result.id,
+            content.id,
             "name":
-            result.name,
+            content.name,
             "num_coming_shows":
             len(
                 db.session.query(Show).filter(
-                    Show.venue_id == result.id).filter(
+                    Show.venue_id == content.id).filter(
                         Show.start_time > datetime.now()).all())
         })
 
-    response = {"count": len(search_result), "data": res}
+    response = {"count": len(query), "data": res}
     return render_template('pages/search_venues.html',
                            results=response,
                            search_term=request.form.get('search_term', ''))
@@ -167,6 +164,7 @@ def show_venue(venue_id):
             "start_time":
             show.start_time.strftime('%Y-%m-%d %H:%M:%S')
         })
+
     data = {
         "id": venue.id,
         "name": venue.name,
@@ -332,6 +330,7 @@ def show_artist(artist_id):
         Show.artist_id == artist_id).filter(
             Show.start_time <= datetime.now()).all()
     past_shows = []
+
     upcoming_query = db.session.query(Show).join(Venue).filter(
         Show.artist_id == artist_id).filter(
             Show.start_time > datetime.now()).all()
